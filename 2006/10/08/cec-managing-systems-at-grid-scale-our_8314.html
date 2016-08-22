@@ -1,0 +1,336 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge;chrome=1' />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Blog Title - CEC: Managing Systems at Grid Scale (Our Presentations)</title>
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+  </head>
+  <body>
+
+    <div id="main" role="main">
+      <p>Shawn Ferry (ME) and Brian Smith</p>
+
+<p>In general our  attendance was a little bit lower than I had<br />
+been hoping for. I think we got in the neighborhood of 80 total…I<br />
+think I should be able to find out exactly somewhere.</p>
+
+<p>Both instances went fairly well we had the required Managed Operations<br />
+content. In the future we need to go straight to an elevator pitch and<br />
+be done with it. I watched as people got bored hearing about how<br />
+managed operations does things. Certainly they were interested in the<br />
+more technical details CTA, encrypted transport and such. Unfortunately<br />
+in our general Managed Operations presentation the less technically<br />
+interesting details are more prevalent and this is a geek<br />
+conference.</p>
+
+<p>Both presentations had a few Managed Operations staff in attendance for<br />
+solidarity. As well as a couple of new Managed Operations staff from<br />
+APAC and EMEA.</p>
+
+<p>The first presentation had a slight timing problem, the 15 min max<br />
+planned managed operations specific content ran about 30min, in the end<br />
+I got<br />
+my content in with about a minute to spare and Brian got the last bits<br />
+in about 5 after the scheduled end.</p>
+
+<p>The second presentation went more to plan. I was able to go into<br />
+more depth on the technical aspects of the monitoring. For those who<br />
+attended the presentation. We send an alert.</p>
+
+<p>The only real failure for the whole thing was the attempt for a demo in<br />
+the extra 5min before the scheduled end of the second presentation<br />
+during the question and answer period. I had maintained what looked<br />
+like good network connectivity until I tried to use it, at which point<br />
+it all went <a href="http://en.wikipedia.org/wiki/Pear_shaped">pear<br />
+shaped</a> and I lost network access
+again.</p>
+
+<p>In brief we covered monitoring methodology:</p>
+
+<p>We have a top down and bottom up approach.</p>
+
+<p>Top Down(A Holistic View):</p>
+
+<p>We start measuring from a user experience, can you reach the web site.</p>
+
+<p>Then a complex web site walking script/library(That I<br />
+wrote) performs a:</p>
+
+<ul>
+  <li>
+    <p>login</p>
+  </li>
+  <li>
+    <p>job submission</p>
+  </li>
+  <li>
+    <p>waits for completion</p>
+  </li>
+  <li>
+    <p>downloads and analyzes the results</p>
+  </li>
+  <li>
+    <p>deletes the job</p>
+  </li>
+  <li>
+    <p>logs out</p>
+  </li>
+</ul>
+
+<p>At various points in the process if we don't get specific results<br />
+(Welcome to the Grid,Job X submitted, Job X Successful, Logout<br />
+Complete)<br />
+or the process is taking too long we send an alert.</p>
+
+<p>Really in the Middle Here(Business Process Monitoring):</p>
+
+<p>The from a Managed Operations Point of view what we want to know is<br />
+what went wrong.</p>
+
+<p>A user can get an login failure for a number of reasons:</p>
+
+<ul>
+  <li>
+    <p>External authentication service could not be functional(Sun<br />
+Grid does not maintain direct authentication data, you must have a<br />
+sunsolve/mysun/store.sun.com account…Go
+href="http://www.sun.com/identity"&gt;Federated Identity<br />
+(
+href="http://www.sun.com/software/media/flash/demo_federation/index.html"&gt;Silly<br />
+Flash IDM) , see also:  href="http://blogs.sun.com/saragates" rel="co-
+worker"&gt;Sara<br />
+Gates Sun's VP IDM)</p>
+  </li>
+  <li>
+    <p>Your name may have been found on the  href="http://www.sun.com/sales/its/export/DRPL/index.html"&gt;Denied<br />
+Restricted Persons List</p>
+  </li>
+  <li>
+    <p>You may have moved to Brazil (This is a presentation In<br />
+joke, I was hoping for some Brazilians to jump up and down and cheer)<br />
+or really you are coming from outside the US.</p>
+  </li>
+</ul>
+
+<p>A job can fail for a number of reasons:</p>
+
+<ul>
+  <li>
+    <p>Malformed Job</p>
+  </li>
+  <li>
+    <p>Portal Submission Failure</p>
+  </li>
+  <li>
+    <p>Grid Engine Failure</p>
+  </li>
+</ul>
+
+<p>Some of these things we can see cause from the middle and some we need<br />
+a lower level view.</p>
+
+<p>Bottom Up (A small sampling, we monitor a very wide range):</p>
+
+<ul>
+  <li>
+    <p>System level KPIs(Memory, CPU)</p>
+  </li>
+  <li>
+    <p>processes (sge_qmaster,sge_execd)</p>
+  </li>
+  <li>
+    <p>services(SMF)</p>
+  </li>
+  <li>
+    <p>logfiles(errors, failures)</p>
+  </li>
+  <li>
+    <p>disk utilization</p>
+  </li>
+  <li>
+    <p>network devices (firewalls, switches, routers)</p>
+  </li>
+</ul>
+
+<p>Examples:</p>
+
+<ul>
+  <li>
+    <p>If the qmaster is not running the job will never actually<br />
+get scheduled.</p>
+  </li>
+  <li>
+    <p>If there are no execds running (slots available) the job<br />
+will never get executed(or really scheduled because the qmaster won't<br />
+schedule it unless it should be able to run.</p>
+  </li>
+  <li>
+    <p>If queues are in an Error state they cannot run jobs.</p>
+  </li>
+  <li>
+    <p>If the file system is full it is impossible for a job to<br />
+write it's output</p>
+  </li>
+</ul>
+
+<p>Presentation Things I learned:</p>
+
+<ul>
+  <li>
+    <p>People want to know why they can't use the grid from<br />
+outside the US and<br />
+don't quite understand how it is that Sun can have a gird and Sun<br />
+employees can't play with it.</p>
+
+    <ul>
+      <li>We knew this was an issue, we could have just addressed<br />
+it straight from the slides</li>
+    </ul>
+  </li>
+  <li>
+    <p>Few Sun employees (who attended our presentation have ever<br />
+used the<br />
+SunGrid, of course I know that a good number of Sun Employees have used<br />
+the Grid it would seem that we just didn't get a lot of them.</p>
+
+    <ul>
+      <li>A demo would have been well received, but if we were<br />
+working with a demo we could have talked for hours</li>
+    </ul>
+  </li>
+  <li>
+    <p>I still need to remember to breathe fully. I find that I<br />
+will talk but<br />
+forget to inhale full breaths if I am not paying attention.</p>
+
+    <ul>
+      <li>I just need to pay attention to my breathing. A pause to<br />
+take a breath is ok…also it lets people absorb your output</li>
+    </ul>
+  </li>
+</ul>
+
+
+    </div>
+
+    <aside>
+      <h2>Recent Articles</h2>
+      <ol>
+          <li><a href="/2011/07/27/looking-for-new-trail-shoes.html">Looking for new (trail) shoes</a> <span>Jul 27</span></li>
+          <li><a href="/2011/07/27/gunpowder-50k.html">Gunpowder 50k</a> <span>Jul 27</span></li>
+          <li><a href="/2011/01/02/winterclassic-2011.html">WinterClassic 2011</a> <span>Jan  2</span></li>
+          <li><a href="/2010/11/28/mcm-race-report-or-example-of-poor.html">MCM Race Report or An Example of Poor Execution</a> <span>Nov 28</span></li>
+          <li><a href="/2010/11/26/army-10-miler.html">Army 10 Miler</a> <span>Nov 26</span></li>
+          <li><a href="/2010/11/09/potomac-heritage-50k.html">Potomac Heritage 50K</a> <span>Nov  9</span></li>
+          <li><a href="/2010/10/21/10th-baltimore-marathon-race-report.html">10th Baltimore Marathon Race Report</a> <span>Oct 21</span></li>
+          <li><a href="/2010/09/29/day-hike-on-at.html">Day Hike on the AT</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/29/caps-vs-bruins-pre-season.html">Caps vs Bruins Pre-Season</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/19/icing-my-foot-and-reading-ultra-running.html">Icing my foot and reading ultra running blogs</a> <span>Sep 19</span></li>
+      </ol>
+
+      <h2>Tags</h2>
+      <ol>
+          <li><a href="/tags/yakshaving.html">yakshaving (130)</a></li>
+          <li><a href="/tags/b-s-c.html">b.s.c. (241)</a></li>
+          <li><a href="/tags/apple.html">apple (9)</a></li>
+          <li><a href="/tags/solaris.html">solaris (33)</a></li>
+          <li><a href="/tags/boring-n-healthy.html">boring N healthy (16)</a></li>
+          <li><a href="/tags/grid.html">grid (3)</a></li>
+          <li><a href="/tags/zones.html">zones (1)</a></li>
+          <li><a href="/tags/solaris10.html">solaris10 (1)</a></li>
+          <li><a href="/tags/lame.html">lame (6)</a></li>
+          <li><a href="/tags/opensolaris.html">opensolaris (11)</a></li>
+          <li><a href="/tags/bittorrent.html">BitTorrent (1)</a></li>
+          <li><a href="/tags/photography.html">photography (1)</a></li>
+          <li><a href="/tags/svn.html">SVN (2)</a></li>
+          <li><a href="/tags/scm.html">SCM (2)</a></li>
+          <li><a href="/tags/cvs.html">CVS (2)</a></li>
+          <li><a href="/tags/svk.html">SVK (2)</a></li>
+          <li><a href="/tags/cec-2006.html">CEC 2006 (28)</a></li>
+          <li><a href="/tags/sun.html">Sun (32)</a></li>
+          <li><a href="/tags/security.html">Security (5)</a></li>
+          <li><a href="/tags/encryption.html">Encryption (1)</a></li>
+          <li><a href="/tags/sun-cec.html">Sun CEC (44)</a></li>
+          <li><a href="/tags/dtrace.html">Dtrace (1)</a></li>
+          <li><a href="/tags/rbac.html">RBAC (1)</a></li>
+          <li><a href="/tags/spam.html">spam (1)</a></li>
+          <li><a href="/tags/education.html">Education (3)</a></li>
+          <li><a href="/tags/sungrid.html">SunGrid (2)</a></li>
+          <li><a href="/tags/puppy.html">puppy (1)</a></li>
+          <li><a href="/tags/web2-0.html">web2.0 (4)</a></li>
+          <li><a href="/tags/secondlife.html">secondlife (3)</a></li>
+          <li><a href="/tags/paranoia.html">Paranoia (2)</a></li>
+          <li><a href="/tags/sunmicrosystems.html">SunMicrosystems (1)</a></li>
+          <li><a href="/tags/cec-2007.html">CEC 2007 (22)</a></li>
+          <li><a href="/tags/indiana.html">indiana (1)</a></li>
+          <li><a href="/tags/olpc.html">olpc (4)</a></li>
+          <li><a href="/tags/x11.html">X11 (1)</a></li>
+          <li><a href="/tags/howto.html">howto (6)</a></li>
+          <li><a href="/tags/leopard.html">Leopard (5)</a></li>
+          <li><a href="/tags/sgd.html">sgd (1)</a></li>
+          <li><a href="/tags/tiger.html">Tiger (1)</a></li>
+          <li><a href="/tags/sge.html">SGE (3)</a></li>
+          <li><a href="/tags/n1ge.html">N1GE (2)</a></li>
+          <li><a href="/tags/zfs.html">ZFS (6)</a></li>
+          <li><a href="/tags/hockey.html">Hockey (3)</a></li>
+          <li><a href="/tags/storage.html">storage (3)</a></li>
+          <li><a href="/tags/food.html">food (5)</a></li>
+          <li><a href="/tags/race.html">race (14)</a></li>
+          <li><a href="/tags/running.html">running (23)</a></li>
+          <li><a href="/tags/photo.html">photo (16)</a></li>
+          <li><a href="/tags/baltimore.html">baltimore (5)</a></li>
+          <li><a href="/tags/family.html">family (1)</a></li>
+          <li><a href="/tags/theater.html">theater (1)</a></li>
+          <li><a href="/tags/vacation.html">vacation (1)</a></li>
+          <li><a href="/tags/china.html">china (1)</a></li>
+          <li><a href="/tags/video.html">video (4)</a></li>
+          <li><a href="/tags/untitled.html">Untitled (4)</a></li>
+          <li><a href="/tags/humor.html">humor (2)</a></li>
+          <li><a href="/tags/twitter.html">twitter (2)</a></li>
+          <li><a href="/tags/games.html">games (1)</a></li>
+          <li><a href="/tags/blender.html">blender (1)</a></li>
+          <li><a href="/tags/movie.html">Movie (1)</a></li>
+          <li><a href="/tags/rendering.html">rendering (1)</a></li>
+          <li><a href="/tags/oss.html">OSS (3)</a></li>
+          <li><a href="/tags/crosug.html">CROSUG (1)</a></li>
+          <li><a href="/tags/marathon.html">marathon (4)</a></li>
+          <li><a href="/tags/gooosegrade.html">gooosegrade (1)</a></li>
+          <li><a href="/tags/computing.html">computing (1)</a></li>
+          <li><a href="/tags/cloud.html">cloud (1)</a></li>
+          <li><a href="/tags/performance.html">performance (2)</a></li>
+          <li><a href="/tags/netbeans.html">NetBeans (1)</a></li>
+          <li><a href="/tags/java.html">java (1)</a></li>
+          <li><a href="/tags/fud.html">FUD (1)</a></li>
+          <li><a href="/tags/hiking.html">hiking (2)</a></li>
+          <li><a href="/tags/fail.html">fail (1)</a></li>
+          <li><a href="/tags/maryland.html">Maryland (1)</a></li>
+          <li><a href="/tags/tnfec.html">TNFEC (2)</a></li>
+          <li><a href="/tags/aarc.html">AARC (2)</a></li>
+          <li><a href="/tags/trail.html">trail (1)</a></li>
+          <li><a href="/tags/burn.html">Burn (1)</a></li>
+          <li><a href="/tags/wickerman.html">WickerMan (1)</a></li>
+          <li><a href="/tags/work.html">work (1)</a></li>
+          <li><a href="/tags/bruins.html">Bruins (1)</a></li>
+          <li><a href="/tags/capitals.html">Capitals (1)</a></li>
+          <li><a href="/tags/ultra.html">ultra (2)</a></li>
+          <li><a href="/tags/fatass.html">fatass (2)</a></li>
+          <li><a href="/tags/vhtrc.html">vhtrc (1)</a></li>
+          <li><a href="/tags/pittsburgh.html">Pittsburgh (1)</a></li>
+      </ol>
+
+      <h2>By Year</h2>
+      <ol>
+          <li><a href="/2011.html">2011 (3)</a></li>
+          <li><a href="/2010.html">2010 (21)</a></li>
+          <li><a href="/2009.html">2009 (2)</a></li>
+          <li><a href="/2008.html">2008 (27)</a></li>
+          <li><a href="/2007.html">2007 (56)</a></li>
+          <li><a href="/2006.html">2006 (61)</a></li>
+          <li><a href="/2005.html">2005 (95)</a></li>
+      </ol>
+    </aside>
+  </body>
+</html>

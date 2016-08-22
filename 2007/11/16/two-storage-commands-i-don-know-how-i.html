@@ -1,0 +1,450 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge;chrome=1' />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Blog Title - Two Storage Commands I Don't Know How I Lived Without</title>
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+  </head>
+  <body>
+
+    <div id="main" role="main">
+      <p>I am working on an issue which involves a 3510 and two dual connected hosts
+(Home grown Active/Active configuration). The customer's equipment has just
+been moved within the cage. When the systems were rebooted one of them
+reported multipath failures and both SCSI errors.</p>
+
+<p>While I was investigating the problems I used cfgadm, luxadm and sccli the
+first two are common to Solaris the last is an additional package for
+management of arrays including the 3510. These commands are not new to me;
+while I was searching for alternative solutions to my problems I found
+<a href="http://docs.sun.com/app/docs/doc/816-5166/6mbb1kq0m?l=en&amp;a=view&amp;q=fcinfo" title="fcinfo man page">fcinfo</a> and
+<a href="http://docs.sun.com/app/docs/doc/816-5166/6mbb1kq8u?l=en&amp;a=view&amp;q=mpathadm" title="man page of mpathadm">mpathadm</a> two fairly new (and definitely new to me) commands.</p>
+
+<p>Using luxadm to display the state of the ports:<br />
+(One of the ports was not connected but I wasn't thinking about blogging it so
+I missed my chance to capture the output.)</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>luxadm -e port  
+&gt; /devices/pci@1d,0/pci1022,7450@1/pci1077,100@1/fp@0,0:devctl CONNECTED  
+&gt; /devices/pci@1d,0/pci1022,7450@2/pci1077,100@1/fp@0,0:devctl CONNECTED  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>Using luxadm to show link errors:</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>luxadm -e rdls /dev/es/ses0  
+&gt;  
+&gt; Link Error Status information for loop:/dev/es/ses0  
+&gt; al_pa   lnk fail    sync loss   signal loss   sequence err   invalid word   CRC  
+&gt; 9e      0           1           1             0              2794 0  
+&gt; 9f      0           0           0             0              243 0  
+&gt; 1       0           0           0             0              0 0  
+&gt;  
+&gt; Link Error Status information for loop:/dev/es/ses0  
+&gt; al_pa   lnk fail    sync loss   signal loss   sequence err   invalid word   CRC  
+&gt; a3      0           2           2             0              65535 0  
+&gt; a5      0           0           0             0              28481 0  
+&gt; 1       0           0           0             0              0 0  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>Using cfgadm to see the configuration of the devices:<br />
+(In the original investigation c2 was displaying type fc and Occupant
+unconfigured)</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>cfgadm -al  
+&gt; Ap_Id                          Type         Receptacle   Occupant Condition  
+&gt; c0                             scsi-bus     connected    configured unknown  
+&gt; c0::dsk/c0t0d0                 disk         connected    configured unknown  
+&gt; c0::dsk/c0t2d0                 disk         connected    configured unknown  
+&gt; c0::dsk/c0t3d0                 disk         connected    configured unknown  
+&gt; c0::es/ses1                    processor    connected    configured unknown  
+&gt; c1                             fc-private   connected    configured unknown  
+&gt; c1::256000c0ffc86cfb           disk         connected    configured unknown  
+&gt; c1::256000c0ffd86cfb           ESI          connected    configured unknown  
+&gt; c2                             fc-private   connected    configured unknown  
+&gt; c2::226000c0ffa86cfb           ESI          connected    configured unknown  
+&gt; c2::226000c0ffb86cfb           ESI          connected    configured unknown  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>I tried using 'cfgadm -c configure c2' and 'cfgadm -f -c configure c2' and
+finally 'cfgadm -o force_update -c configure c2' none of which succeeded in
+letting me recover the path. I just now found a <a href="http://bugs.opensolaris.org/view_bug.do;jsessionid=afcfa74218c1bae3a88e6ca4a2a?bug_id=6329824">bug for path shows NOT
+CONNECTED</a>.
+It appears that I might have been able to recover using 'luxadm -e forcelip'.
+Since I needed to clear the 3510 error counters it was decided to take the
+systems down and power cycle the 3510.</p>
+
+<p>Now on to the hook for this post (fcinfo and mpathadm). While looking at
+various documentation I found fcinfo and mpathadm!<br />
+fcinfo was added in S10u1. Using fcinfo I saw the some of the same information
+that I got from 'luxadm -e rdls' and more.<br />
+Using fcinfo to see local hba-port info:</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>fcinfo hba-port -l  
+&gt; HBA Port WWN: 210000e08b1cdb34  
+&gt;         OS Device Name: /dev/cfg/c1  
+&gt;         Manufacturer: QLogic Corp.  
+&gt;         Model: QLA2340  
+&gt;         Firmware Version: 3.3.117  
+&gt;         FCode/BIOS Version: N/A  
+&gt;         Type: L-port  
+&gt;         State: online  
+&gt;         Supported Speeds: 1Gb 2Gb  
+&gt;         Current Speed: 2Gb  
+&gt;         Node WWN: 200000e08b1cdb34  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 0  
+&gt;                 Loss of Signal Count: 0  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 0  
+&gt;                 Invalid CRC Count: 0  
+&gt; HBA Port WWN: 210000e08b1124bf  
+&gt;         OS Device Name: /dev/cfg/c2  
+&gt;         Manufacturer: QLogic Corp.  
+&gt;         Model: QLA2340  
+&gt;         Firmware Version: 3.3.117  
+&gt;         FCode/BIOS Version: N/A  
+&gt;         Type: L-port  
+&gt;         State: online  
+&gt;         Supported Speeds: 1Gb 2Gb  
+&gt;         Current Speed: 2Gb  
+&gt;         Node WWN: 200000e08b1124bf  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 0  
+&gt;                 Loss of Signal Count: 0  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 0  
+&gt;                 Invalid CRC Count: 0  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>Nothing extremely interesting on the hba-port side, however fcinfo also shows
+remote-port information.<br />
+Using fcinfo to see remote-port info: (the -p option shows information visible
+from the hba-port WWNs seen above)</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>fcinfo remote-port -l -p 210000e08b1124bf  
+&gt; Remote Port WWN: 226000c0ffb86cfb  
+&gt;         Active FC4 Types:  
+&gt;         SCSI Target: yes  
+&gt;         Node WWN: 206000c0ff086cfb  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 2  
+&gt;                 Loss of Signal Count: 2  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 65535  
+&gt;                 Invalid CRC Count: 0  
+&gt; Remote Port WWN: 226000c0ffa86cfb  
+&gt;         Active FC4 Types:  
+&gt;         SCSI Target: yes  
+&gt;         Node WWN: 206000c0ff086cfb  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 0  
+&gt;                 Loss of Signal Count: 0  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 28481  
+&gt;                 Invalid CRC Count: 0  
+&gt;
+</code></pre>
+</blockquote>
+
+<blockquote>
+
+  <pre><code>&gt;
+</code></pre>
+</blockquote>
+
+<blockquote>
+
+  <pre><code>fcinfo remote-port -l -p 210000e08b1cdb34  
+&gt; Remote Port WWN: 256000c0ffd86cfb  
+&gt;         Active FC4 Types:  
+&gt;         SCSI Target: yes  
+&gt;         Node WWN: 206000c0ff086cfb  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 1  
+&gt;                 Loss of Signal Count: 1  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 2794  
+&gt;                 Invalid CRC Count: 0  
+&gt; Remote Port WWN: 256000c0ffc86cfb  
+&gt;         Active FC4 Types:  
+&gt;         SCSI Target: yes  
+&gt;         Node WWN: 206000c0ff086cfb  
+&gt;         Link Error Statistics:  
+&gt;                 Link Failure Count: 0  
+&gt;                 Loss of Sync Count: 0  
+&gt;                 Loss of Signal Count: 0  
+&gt;                 Primitive Seq Protocol Error Count: 0  
+&gt;                 Invalid Tx Word Count: 243  
+&gt;                 Invalid CRC Count: 0  
+&gt;  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>Fcinfo and luxadm are clearly showing me that there are problems reported for
+the remote port in the 'Invalid Tx Word Count'.<br />
+The primary recommendation is to reseat the cables SPFs and blow out the
+ports. We are moving along with the process now, having replaced one of the
+cables, reseated everything and blown out the ports.</p>
+
+<p>On to mpathadm, it was added in S10u3 and lets you discover and manage
+multipathing (shocking given its name).<br />
+I am using mpathadm to display information about the current configuration.
+Prior to the reboot the system with only one link in CONNECTED state showed
+only one path to all devices.<br />
+Output from 'mpathadm list lu':</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>mpathadm list lu  
+&gt;         /scsi_vhci/enclosure@g600c0ff000000000086cfb0000000000  
+&gt;                 Total Path Count: 3  
+&gt;                 Operational Path Count: 3  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB359771241Bd0s2  
+&gt;                 Total Path Count: 1  
+&gt;                 Operational Path Count: 1  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB359771241Ad0s2  
+&gt;                 Total Path Count: 1  
+&gt;                 Operational Path Count: 1  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB3597712419d0s2  
+&gt;                 Total Path Count: 1  
+&gt;                 Operational Path Count: 1  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB3597712418d0s2  
+&gt;                 Total Path Count: 1  
+&gt;                 Operational Path Count: 1  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB3597712417d0s2  
+&gt;                 Total Path Count: 2  
+&gt;                 Operational Path Count: 2  
+&gt;         /dev/rdsk/c3t600C0FF000000000086CFB3597712416d0s2  
+&gt;                 Total Path Count: 2  
+&gt;                 Operational Path Count: 2  
+&gt;  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>Specific detail from 'mpathadm show lu' on path:</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>mpathadm show lu /dev/rdsk/c3t600C0FF000000000086CFB3597712416d0s2  
+&gt; Logical Unit:  /dev/rdsk/c3t600C0FF000000000086CFB3597712416d0s2  
+&gt;         mpath-support:  libmpscsi_vhci.so  
+&gt;         Vendor:  SUN  
+&gt;         Product:  StorEdge 3510  
+&gt;         Revision:  415G  
+&gt;         Name Type:  unknown type  
+&gt;         Name:  600c0ff000000000086cfb3597712416  
+&gt;         Asymmetric:  no  
+&gt;         Current Load Balance:  round-robin  
+&gt;         Logical Unit Group ID:  NA  
+&gt;         Auto Failback:  on  
+&gt;         Auto Probing:  NA  
+&gt;  
+&gt;         Paths:  
+&gt;                 Initiator Port Name:  210000e08b1cdb34  
+&gt;                 Target Port Name:  256000c0ffc86cfb  
+&gt;                 Override Path:  NA  
+&gt;                 Path State:  OK  
+&gt;                 Disabled:  no  
+&gt;  
+&gt;                 Initiator Port Name:  210000e08b1124bf  
+&gt;                 Target Port Name:  226000c0ffb86cfb  
+&gt;                 Override Path:  NA  
+&gt;                 Path State:  OK  
+&gt;                 Disabled:  no  
+&gt;  
+&gt;         Target Ports:  
+&gt;                 Name:  256000c0ffc86cfb  
+&gt;                 Relative ID:  0  
+&gt;  
+&gt;                 Name:  226000c0ffb86cfb  
+&gt;                 Relative ID:  0  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>This is in no way a full exploration of the capabilities of fcinfo and
+mpathadm.<br />
+I hope that the next time you are (or I am) looking at FC or multipath issues
+these commands will be helpful.<br />
+Please see the links to the manual pages below for more specific information
+and examples from the fcinfo and mpathadm commands.</p>
+
+<p>References:<br />
+<a href="http://docs.sun.com/app/docs/doc/816-5166/6mbb1kq0m?l=en&amp;a=view&amp;q=fcinfo" title="fcinfo man page">fcinfo #8211 Fibre Channel HBA Port Command Line
+Interface</a><br />
+<a href="http://docs.sun.com/app/docs/doc/816-5166/6mbb1kq8u?l=en&amp;a=view&amp;q=mpathadm" title="man page of mpathadm">mpathadm #8211 multipath discovery and
+administration</a></p>
+
+<p>EDIT: Fixed some strange formatting issues<br />
+EDIT1: A bit more touch up</p>
+
+
+    </div>
+
+    <aside>
+      <h2>Recent Articles</h2>
+      <ol>
+          <li><a href="/2011/07/27/looking-for-new-trail-shoes.html">Looking for new (trail) shoes</a> <span>Jul 27</span></li>
+          <li><a href="/2011/07/27/gunpowder-50k.html">Gunpowder 50k</a> <span>Jul 27</span></li>
+          <li><a href="/2011/01/02/winterclassic-2011.html">WinterClassic 2011</a> <span>Jan  2</span></li>
+          <li><a href="/2010/11/28/mcm-race-report-or-example-of-poor.html">MCM Race Report or An Example of Poor Execution</a> <span>Nov 28</span></li>
+          <li><a href="/2010/11/26/army-10-miler.html">Army 10 Miler</a> <span>Nov 26</span></li>
+          <li><a href="/2010/11/09/potomac-heritage-50k.html">Potomac Heritage 50K</a> <span>Nov  9</span></li>
+          <li><a href="/2010/10/21/10th-baltimore-marathon-race-report.html">10th Baltimore Marathon Race Report</a> <span>Oct 21</span></li>
+          <li><a href="/2010/09/29/day-hike-on-at.html">Day Hike on the AT</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/29/caps-vs-bruins-pre-season.html">Caps vs Bruins Pre-Season</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/19/icing-my-foot-and-reading-ultra-running.html">Icing my foot and reading ultra running blogs</a> <span>Sep 19</span></li>
+      </ol>
+
+      <h2>Tags</h2>
+      <ol>
+          <li><a href="/tags/yakshaving.html">yakshaving (130)</a></li>
+          <li><a href="/tags/b-s-c.html">b.s.c. (241)</a></li>
+          <li><a href="/tags/apple.html">apple (9)</a></li>
+          <li><a href="/tags/solaris.html">solaris (33)</a></li>
+          <li><a href="/tags/boring-n-healthy.html">boring N healthy (16)</a></li>
+          <li><a href="/tags/grid.html">grid (3)</a></li>
+          <li><a href="/tags/zones.html">zones (1)</a></li>
+          <li><a href="/tags/solaris10.html">solaris10 (1)</a></li>
+          <li><a href="/tags/lame.html">lame (6)</a></li>
+          <li><a href="/tags/opensolaris.html">opensolaris (11)</a></li>
+          <li><a href="/tags/bittorrent.html">BitTorrent (1)</a></li>
+          <li><a href="/tags/photography.html">photography (1)</a></li>
+          <li><a href="/tags/svn.html">SVN (2)</a></li>
+          <li><a href="/tags/scm.html">SCM (2)</a></li>
+          <li><a href="/tags/cvs.html">CVS (2)</a></li>
+          <li><a href="/tags/svk.html">SVK (2)</a></li>
+          <li><a href="/tags/cec-2006.html">CEC 2006 (28)</a></li>
+          <li><a href="/tags/sun.html">Sun (32)</a></li>
+          <li><a href="/tags/security.html">Security (5)</a></li>
+          <li><a href="/tags/encryption.html">Encryption (1)</a></li>
+          <li><a href="/tags/sun-cec.html">Sun CEC (44)</a></li>
+          <li><a href="/tags/dtrace.html">Dtrace (1)</a></li>
+          <li><a href="/tags/rbac.html">RBAC (1)</a></li>
+          <li><a href="/tags/spam.html">spam (1)</a></li>
+          <li><a href="/tags/education.html">Education (3)</a></li>
+          <li><a href="/tags/sungrid.html">SunGrid (2)</a></li>
+          <li><a href="/tags/puppy.html">puppy (1)</a></li>
+          <li><a href="/tags/web2-0.html">web2.0 (4)</a></li>
+          <li><a href="/tags/secondlife.html">secondlife (3)</a></li>
+          <li><a href="/tags/paranoia.html">Paranoia (2)</a></li>
+          <li><a href="/tags/sunmicrosystems.html">SunMicrosystems (1)</a></li>
+          <li><a href="/tags/cec-2007.html">CEC 2007 (22)</a></li>
+          <li><a href="/tags/indiana.html">indiana (1)</a></li>
+          <li><a href="/tags/olpc.html">olpc (4)</a></li>
+          <li><a href="/tags/x11.html">X11 (1)</a></li>
+          <li><a href="/tags/howto.html">howto (6)</a></li>
+          <li><a href="/tags/leopard.html">Leopard (5)</a></li>
+          <li><a href="/tags/sgd.html">sgd (1)</a></li>
+          <li><a href="/tags/tiger.html">Tiger (1)</a></li>
+          <li><a href="/tags/sge.html">SGE (3)</a></li>
+          <li><a href="/tags/n1ge.html">N1GE (2)</a></li>
+          <li><a href="/tags/zfs.html">ZFS (6)</a></li>
+          <li><a href="/tags/hockey.html">Hockey (3)</a></li>
+          <li><a href="/tags/storage.html">storage (3)</a></li>
+          <li><a href="/tags/food.html">food (5)</a></li>
+          <li><a href="/tags/race.html">race (14)</a></li>
+          <li><a href="/tags/running.html">running (23)</a></li>
+          <li><a href="/tags/photo.html">photo (16)</a></li>
+          <li><a href="/tags/baltimore.html">baltimore (5)</a></li>
+          <li><a href="/tags/family.html">family (1)</a></li>
+          <li><a href="/tags/theater.html">theater (1)</a></li>
+          <li><a href="/tags/vacation.html">vacation (1)</a></li>
+          <li><a href="/tags/china.html">china (1)</a></li>
+          <li><a href="/tags/video.html">video (4)</a></li>
+          <li><a href="/tags/untitled.html">Untitled (4)</a></li>
+          <li><a href="/tags/humor.html">humor (2)</a></li>
+          <li><a href="/tags/twitter.html">twitter (2)</a></li>
+          <li><a href="/tags/games.html">games (1)</a></li>
+          <li><a href="/tags/blender.html">blender (1)</a></li>
+          <li><a href="/tags/movie.html">Movie (1)</a></li>
+          <li><a href="/tags/rendering.html">rendering (1)</a></li>
+          <li><a href="/tags/oss.html">OSS (3)</a></li>
+          <li><a href="/tags/crosug.html">CROSUG (1)</a></li>
+          <li><a href="/tags/marathon.html">marathon (4)</a></li>
+          <li><a href="/tags/gooosegrade.html">gooosegrade (1)</a></li>
+          <li><a href="/tags/computing.html">computing (1)</a></li>
+          <li><a href="/tags/cloud.html">cloud (1)</a></li>
+          <li><a href="/tags/performance.html">performance (2)</a></li>
+          <li><a href="/tags/netbeans.html">NetBeans (1)</a></li>
+          <li><a href="/tags/java.html">java (1)</a></li>
+          <li><a href="/tags/fud.html">FUD (1)</a></li>
+          <li><a href="/tags/hiking.html">hiking (2)</a></li>
+          <li><a href="/tags/fail.html">fail (1)</a></li>
+          <li><a href="/tags/maryland.html">Maryland (1)</a></li>
+          <li><a href="/tags/tnfec.html">TNFEC (2)</a></li>
+          <li><a href="/tags/aarc.html">AARC (2)</a></li>
+          <li><a href="/tags/trail.html">trail (1)</a></li>
+          <li><a href="/tags/burn.html">Burn (1)</a></li>
+          <li><a href="/tags/wickerman.html">WickerMan (1)</a></li>
+          <li><a href="/tags/work.html">work (1)</a></li>
+          <li><a href="/tags/bruins.html">Bruins (1)</a></li>
+          <li><a href="/tags/capitals.html">Capitals (1)</a></li>
+          <li><a href="/tags/ultra.html">ultra (2)</a></li>
+          <li><a href="/tags/fatass.html">fatass (2)</a></li>
+          <li><a href="/tags/vhtrc.html">vhtrc (1)</a></li>
+          <li><a href="/tags/pittsburgh.html">Pittsburgh (1)</a></li>
+      </ol>
+
+      <h2>By Year</h2>
+      <ol>
+          <li><a href="/2011.html">2011 (3)</a></li>
+          <li><a href="/2010.html">2010 (21)</a></li>
+          <li><a href="/2009.html">2009 (2)</a></li>
+          <li><a href="/2008.html">2008 (27)</a></li>
+          <li><a href="/2007.html">2007 (56)</a></li>
+          <li><a href="/2006.html">2006 (61)</a></li>
+          <li><a href="/2005.html">2005 (95)</a></li>
+      </ol>
+    </aside>
+  </body>
+</html>

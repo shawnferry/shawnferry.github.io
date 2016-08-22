@@ -1,0 +1,320 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge;chrome=1' />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Blog Title - Creating an SMF service (Part 3)</title>
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+  </head>
+  <body>
+
+    <div id="main" role="main">
+      <p>If you havn't already read them you might want to start with <a href="http://blogs.sun.com/roller/page/yakshaving?entry=creating_an_smf_service_part">Part
+1</a>
+or continue with <a href="http://blogs.sun.com/roller/page/yakshaving?entry=creating_an_smf_service_part1">Part
+2</a>.</p>
+
+<p>It took me a bit longer to get this written than I intended, now that I have
+figured out that textile and code/pre tags don't play well this should easier.</p>
+
+<p>In short however, it does what I need it to do now. The whole thing wouldn't
+suffer from some more work though.</p>
+
+<p>In particular it is currently very brittle. If my relocatable package is
+relocated parts of this will break. I particularly don't know what to do with
+installations on a root server.</p>
+
+<p>The following is the first part of the manifest.</p>
+
+<pre><code>&lt;?xml version='1.0'?&gt;  
+&lt;!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1"&gt;  
+&lt;!-- Service manifest for the Sysedge monitoring program(s) --&gt;  
+  
+&lt;service_bundle type='manifest' name='SUNWsmcsysedge'&gt;  
+  
+  &lt;!-- A milestone to collect dependencies for both sysedge and sysedgeplus --&gt;  
+  &lt;service   
+    name="application/monitoring/sysedge_deps"  
+    type="milestone"  
+    version="1"&gt;  
+  
+      &lt;!-- common sysedge dependencies --&gt;  
+      &lt;instance name="default" enabled="false"&gt;  
+          &lt;dependency  
+              name='filesystem'  
+              grouping='require_all'  
+              restart_on='none'  
+              type='service'&gt;  
+              &lt;service_fmri value='svc:/system/filesystem/local' /&gt;  
+          &lt;/dependency&gt;  
+          &lt;dependency  
+              name='network'  
+              grouping='require_all'  
+              restart_on='refresh'  
+              type='service'&gt;  
+              &lt;service_fmri value='svc:/network/initial' /&gt;  
+          &lt;/dependency&gt;  
+          &lt;dependency  
+              name='sysedge_cf'  
+              grouping='require_all'  
+              restart_on='refresh'  
+              type='path'&gt;  
+              &lt;service_fmri  
+                value='file://localhost/etc/opt/SUNWsmcsysedge/sysedge.cf' /&gt;  
+          &lt;/dependency&gt;  
+      &lt;/instance&gt;  
+  
+      &lt;!-- sysedgeplus dependencies --&gt;  
+      &lt;instance name="plus" enabled="false"&gt;  
+        &lt;dependency  
+            name='sysedgeplus'  
+            grouping='require_all'  
+            restart_on='refresh'  
+            type='path'&gt;  
+            &lt;service_fmri  
+              value='file://localhost/opt/SUNWsmcsysedge/plus/sysedgeplus' /&gt;  
+        &lt;/dependency&gt;  
+      &lt;/instance&gt;  
+      &lt;stability value='Unstable' /&gt;  
+  &lt;/service&gt;  
+</code></pre>
+
+<p>The brief rundown including how I generally read it to myself:</p>
+
+<pre><code>&lt;?xml version='1.0'?&gt;  
+&lt;!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1"&gt;  
+&lt;!-- Service manifest for the Sysedge monitoring program(s) --&gt;  
+</code></pre>
+
+<p>This is XML, and the DTD can be found here
+<em>/usr/share/lib/xml/dtd/service_bundle.dtd.1</em></p>
+
+<pre><code>&lt;service_bundle type='manifest' name='SUNWsmcsysedge'&gt;  
+</code></pre>
+
+<p>This is a manifest called <em>SUNWsmcsysedge</em></p>
+
+<pre><code>  &lt;!-- A milestone to collect dependencies for both sysedge and sysedgeplus --&gt;  
+  &lt;service   
+    name="application/monitoring/sysedge_deps"  
+    type="milestone"  
+    version="1"&gt;  
+</code></pre>
+
+<p>The first "service" in the manifest is <em>application/monitoring/sysedge_dep</em>
+and it is a milestone.</p>
+
+<p>(It is a milestone because somewhere the docs said roughly: A milestone is a
+syntectic service that collects dependencies)</p>
+
+<pre><code>      &lt;!-- common sysedge dependencies --&gt;  
+      &lt;instance name="default" enabled="false"&gt;  
+          &lt;dependency  
+              name='filesystem'  
+              grouping='require_all'  
+              restart_on='none'  
+              type='service'&gt;  
+              &lt;service_fmri value='svc:/system/filesystem/local' /&gt;  
+          &lt;/dependency&gt;  
+</code></pre>
+
+<p>As stated in the comment this is an instance of the service/milestone called
+default and it has a dependency called filesystem.</p>
+
+<p>The dependency is part of the <strong>require_all</strong> groups of dependencies it has
+<code>restart_on=none</code> set which indicates that the local filesystems are reqiured
+to start the service, but after it is started changes to the filesystem do not
+require a restart to this service automatically.</p>
+
+<p>This service has multiple instances with different instances being used or re-
+used to fulfill the requirements pf various other services.</p>
+
+<pre><code>          &lt;dependency  
+              name='network'  
+              grouping='require_all'  
+              restart_on='refresh'  
+              type='service'&gt;  
+              &lt;service_fmri value='svc:/network/initial' /&gt;  
+          &lt;/dependency&gt;  
+</code></pre>
+
+<p>The second dependency is a requirement for networking support to be enabled.
+Again it is part of the <strong>require_all</strong> grouping, however in this case if the
+network configuration is refreshed the dependent service is restarted.
+Effectively I believe that this actually propagates down through the
+dependencies.</p>
+
+<pre><code>      &lt;dependency  
+              name='sysedge_cf'  
+              grouping='require_all'  
+              restart_on='refresh'  
+              type='path'&gt;  
+              &lt;service_fmri  
+                value='file://localhost/etc/opt/SUNWsmcsysedge/sysedge.cf' /&gt;  
+      &lt;/dependency&gt;  
+</code></pre>
+
+<p>The third dependency in <em>sysedge_defs:default</em> or
+<em>application/monitoring/sysedge_deps:default</em> is also part of the
+<strong>require_all</strong> grouping. Note that the type here is <em>path</em>. The path type
+indicates that the <em>service_fmri</em> is pointing at a path that must exist to
+meet the dependency requirement.</p>
+
+<pre><code>&lt;/instance&gt;  
+</code></pre>
+
+<p>The closing instance tag indicates that the first defined instance (In this
+case named default) is finished.</p>
+
+<pre><code>      &lt;!-- sysedgeplus dependencies --&gt;  
+      &lt;instance name="plus" enabled="false"&gt;  
+        &lt;dependency  
+            name='sysedgeplus'  
+            grouping='require_all'  
+            restart_on='refresh'  
+            type='path'&gt;  
+            &lt;service_fmri  
+              value='file://localhost/opt/SUNWsmcsysedge/plus/sysedgeplus' /&gt;  
+        &lt;/dependency&gt;  
+      &lt;/instance&gt;  
+</code></pre>
+
+<p>The second instance exists to validate the sysedgeplus instance.</p>
+
+<pre><code>      &lt;stability value='Unstable' /&gt;  
+  &lt;/service&gt;  
+</code></pre>
+
+<p>The stability <em>Unstable</em> indicates that I am still making up my mind about how
+all of this should work and I am apt to change it at any time. (Sun has actual
+definitions of the different stability levels)</p>
+
+<p>Stay tuned, in our next episode I will define a service that actually runs a
+process.</p>
+
+<p>topic:{technorati}[Solaris]<br />
+topic:{technorati}[SMF]</p>
+
+
+    </div>
+
+    <aside>
+      <h2>Recent Articles</h2>
+      <ol>
+          <li><a href="/2011/07/27/looking-for-new-trail-shoes.html">Looking for new (trail) shoes</a> <span>Jul 27</span></li>
+          <li><a href="/2011/07/27/gunpowder-50k.html">Gunpowder 50k</a> <span>Jul 27</span></li>
+          <li><a href="/2011/01/02/winterclassic-2011.html">WinterClassic 2011</a> <span>Jan  2</span></li>
+          <li><a href="/2010/11/28/mcm-race-report-or-example-of-poor.html">MCM Race Report or An Example of Poor Execution</a> <span>Nov 28</span></li>
+          <li><a href="/2010/11/26/army-10-miler.html">Army 10 Miler</a> <span>Nov 26</span></li>
+          <li><a href="/2010/11/09/potomac-heritage-50k.html">Potomac Heritage 50K</a> <span>Nov  9</span></li>
+          <li><a href="/2010/10/21/10th-baltimore-marathon-race-report.html">10th Baltimore Marathon Race Report</a> <span>Oct 21</span></li>
+          <li><a href="/2010/09/29/day-hike-on-at.html">Day Hike on the AT</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/29/caps-vs-bruins-pre-season.html">Caps vs Bruins Pre-Season</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/19/icing-my-foot-and-reading-ultra-running.html">Icing my foot and reading ultra running blogs</a> <span>Sep 19</span></li>
+      </ol>
+
+      <h2>Tags</h2>
+      <ol>
+          <li><a href="/tags/yakshaving.html">yakshaving (130)</a></li>
+          <li><a href="/tags/b-s-c.html">b.s.c. (241)</a></li>
+          <li><a href="/tags/apple.html">apple (9)</a></li>
+          <li><a href="/tags/solaris.html">solaris (33)</a></li>
+          <li><a href="/tags/boring-n-healthy.html">boring N healthy (16)</a></li>
+          <li><a href="/tags/grid.html">grid (3)</a></li>
+          <li><a href="/tags/zones.html">zones (1)</a></li>
+          <li><a href="/tags/solaris10.html">solaris10 (1)</a></li>
+          <li><a href="/tags/lame.html">lame (6)</a></li>
+          <li><a href="/tags/opensolaris.html">opensolaris (11)</a></li>
+          <li><a href="/tags/bittorrent.html">BitTorrent (1)</a></li>
+          <li><a href="/tags/photography.html">photography (1)</a></li>
+          <li><a href="/tags/svn.html">SVN (2)</a></li>
+          <li><a href="/tags/scm.html">SCM (2)</a></li>
+          <li><a href="/tags/cvs.html">CVS (2)</a></li>
+          <li><a href="/tags/svk.html">SVK (2)</a></li>
+          <li><a href="/tags/cec-2006.html">CEC 2006 (28)</a></li>
+          <li><a href="/tags/sun.html">Sun (32)</a></li>
+          <li><a href="/tags/security.html">Security (5)</a></li>
+          <li><a href="/tags/encryption.html">Encryption (1)</a></li>
+          <li><a href="/tags/sun-cec.html">Sun CEC (44)</a></li>
+          <li><a href="/tags/dtrace.html">Dtrace (1)</a></li>
+          <li><a href="/tags/rbac.html">RBAC (1)</a></li>
+          <li><a href="/tags/spam.html">spam (1)</a></li>
+          <li><a href="/tags/education.html">Education (3)</a></li>
+          <li><a href="/tags/sungrid.html">SunGrid (2)</a></li>
+          <li><a href="/tags/puppy.html">puppy (1)</a></li>
+          <li><a href="/tags/web2-0.html">web2.0 (4)</a></li>
+          <li><a href="/tags/secondlife.html">secondlife (3)</a></li>
+          <li><a href="/tags/paranoia.html">Paranoia (2)</a></li>
+          <li><a href="/tags/sunmicrosystems.html">SunMicrosystems (1)</a></li>
+          <li><a href="/tags/cec-2007.html">CEC 2007 (22)</a></li>
+          <li><a href="/tags/indiana.html">indiana (1)</a></li>
+          <li><a href="/tags/olpc.html">olpc (4)</a></li>
+          <li><a href="/tags/x11.html">X11 (1)</a></li>
+          <li><a href="/tags/howto.html">howto (6)</a></li>
+          <li><a href="/tags/leopard.html">Leopard (5)</a></li>
+          <li><a href="/tags/sgd.html">sgd (1)</a></li>
+          <li><a href="/tags/tiger.html">Tiger (1)</a></li>
+          <li><a href="/tags/sge.html">SGE (3)</a></li>
+          <li><a href="/tags/n1ge.html">N1GE (2)</a></li>
+          <li><a href="/tags/zfs.html">ZFS (6)</a></li>
+          <li><a href="/tags/hockey.html">Hockey (3)</a></li>
+          <li><a href="/tags/storage.html">storage (3)</a></li>
+          <li><a href="/tags/food.html">food (5)</a></li>
+          <li><a href="/tags/race.html">race (14)</a></li>
+          <li><a href="/tags/running.html">running (23)</a></li>
+          <li><a href="/tags/photo.html">photo (16)</a></li>
+          <li><a href="/tags/baltimore.html">baltimore (5)</a></li>
+          <li><a href="/tags/family.html">family (1)</a></li>
+          <li><a href="/tags/theater.html">theater (1)</a></li>
+          <li><a href="/tags/vacation.html">vacation (1)</a></li>
+          <li><a href="/tags/china.html">china (1)</a></li>
+          <li><a href="/tags/video.html">video (4)</a></li>
+          <li><a href="/tags/untitled.html">Untitled (4)</a></li>
+          <li><a href="/tags/humor.html">humor (2)</a></li>
+          <li><a href="/tags/twitter.html">twitter (2)</a></li>
+          <li><a href="/tags/games.html">games (1)</a></li>
+          <li><a href="/tags/blender.html">blender (1)</a></li>
+          <li><a href="/tags/movie.html">Movie (1)</a></li>
+          <li><a href="/tags/rendering.html">rendering (1)</a></li>
+          <li><a href="/tags/oss.html">OSS (3)</a></li>
+          <li><a href="/tags/crosug.html">CROSUG (1)</a></li>
+          <li><a href="/tags/marathon.html">marathon (4)</a></li>
+          <li><a href="/tags/gooosegrade.html">gooosegrade (1)</a></li>
+          <li><a href="/tags/computing.html">computing (1)</a></li>
+          <li><a href="/tags/cloud.html">cloud (1)</a></li>
+          <li><a href="/tags/performance.html">performance (2)</a></li>
+          <li><a href="/tags/netbeans.html">NetBeans (1)</a></li>
+          <li><a href="/tags/java.html">java (1)</a></li>
+          <li><a href="/tags/fud.html">FUD (1)</a></li>
+          <li><a href="/tags/hiking.html">hiking (2)</a></li>
+          <li><a href="/tags/fail.html">fail (1)</a></li>
+          <li><a href="/tags/maryland.html">Maryland (1)</a></li>
+          <li><a href="/tags/tnfec.html">TNFEC (2)</a></li>
+          <li><a href="/tags/aarc.html">AARC (2)</a></li>
+          <li><a href="/tags/trail.html">trail (1)</a></li>
+          <li><a href="/tags/burn.html">Burn (1)</a></li>
+          <li><a href="/tags/wickerman.html">WickerMan (1)</a></li>
+          <li><a href="/tags/work.html">work (1)</a></li>
+          <li><a href="/tags/bruins.html">Bruins (1)</a></li>
+          <li><a href="/tags/capitals.html">Capitals (1)</a></li>
+          <li><a href="/tags/ultra.html">ultra (2)</a></li>
+          <li><a href="/tags/fatass.html">fatass (2)</a></li>
+          <li><a href="/tags/vhtrc.html">vhtrc (1)</a></li>
+          <li><a href="/tags/pittsburgh.html">Pittsburgh (1)</a></li>
+      </ol>
+
+      <h2>By Year</h2>
+      <ol>
+          <li><a href="/2011.html">2011 (3)</a></li>
+          <li><a href="/2010.html">2010 (21)</a></li>
+          <li><a href="/2009.html">2009 (2)</a></li>
+          <li><a href="/2008.html">2008 (27)</a></li>
+          <li><a href="/2007.html">2007 (56)</a></li>
+          <li><a href="/2006.html">2006 (61)</a></li>
+          <li><a href="/2005.html">2005 (95)</a></li>
+      </ol>
+    </aside>
+  </body>
+</html>

@@ -1,0 +1,233 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge;chrome=1' />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Blog Title - Cat Proof External Storage</title>
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+  </head>
+  <body>
+
+    <div id="main" role="main">
+      <p>What happens when you disconnect the drive on the fly?<br />
+(e.g. set up a tripping hazard for your cat)</p>
+
+<p>You get this message</p>
+
+<p><img src="http://lalartu.smugmug.com/photos/231335372-L.jpg" alt="The device you removed was not properly put away.Data might have been lost
+or damaged. Before youunplug your device, you must first select its icon inthe
+Finder and choose Eject from the File
+menu." /></p>
+
+<p>What happens when you do the same thing to a ZFS pool? This is no different<br />
+than what you get on Solaris, except it is on my Mac Book Pro.</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>  pool: p1  
+&gt;    state: DEGRADED  
+&gt;   status: One or more devices could not be opened.  Sufficient replicas exist for  
+&gt;       the pool to continue functioning in a degraded state.  
+&gt;   action: Attach the missing device and online it using 'zpool online'.  
+&gt;      see: http://www.sun.com/msg/ZFS-8000-D3  
+&gt;    scrub: scrub completed with 0 errors on Sat Dec  8 01:44:00 2007  
+&gt;   config:  
+&gt;  
+&gt;       NAME         STATE     READ WRITE CKSUM  
+&gt;       p1           DEGRADED     0     0     0  
+&gt;         mirror     DEGRADED     0     0     0  
+&gt;           **disk7s1  UNAVAIL      0   114     0  cannot open**  
+&gt;           disk0s3  ONLINE       0     0     0
+</code></pre>
+</blockquote>
+
+<p>Fortunately for me, my system keeps merrily chugging along.</p>
+
+<p>Unfortunately (sort of) and this is much more of an issue on my Mac than on<br />
+any other system I am adding and removing devices much more frequently.</p>
+
+<p>When I last connected the external disk and imported the pool I had 6<br />
+more "disks" visible to the system (really a usb thumb drive) another FW<br />
+device and a few SW RAID devices. This caused my nice portable external<br />
+FW disk to appear as disk7.</p>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <pre><code>  diskutil list  
+&gt;   /dev/disk0  
+&gt;      #:                       TYPE NAME                    SIZE IDENTIFIER  
+&gt;      0:      GUID_partition_scheme                        *149.1 Gi disk0  
+&gt;      1:                        EFI                         200.0 Mi disk0s1  
+&gt;      2:                  Apple_HFS noroute                 88.9 Gi disk0s2  
+&gt;      3:                  Apple_HFS                         57.0 Gi disk0s3  
+&gt;      4:                  Apple_HFS noroute_2_1_2           2.6 Gi disk0s4  
+&gt;   /dev/disk1  
+&gt;      #:                       TYPE NAME                    SIZE IDENTIFIER  
+&gt;      0:     FDisk_partition_scheme                        *55.9 Gi disk1  
+&gt;      **1:                  Apple_HFS                         55.9 Gi disk1s1**  
+&gt;
+</code></pre>
+</blockquote>
+
+<p>The difference between the zpool status and diskutil list output<br />
+is the device configured for the pool is disk7s1 not the currently visible<br />
+disk1s1.</p>
+
+<p>I don't know how to recover from this situation live. If the device has not<br />
+renumbered you just zpool online p1 disk7s1 to reconnect on a different<br />
+device number I export and import the pool again.</p>
+
+<p>To state that another way, I don't know how to effectively do:<br />
+zpool online p1<br />
+similar to<br />
+zpool replace p1<br />
+(the replace, even with -f, failed telling me that  was busy)</p>
+
+<p>I have just requested a pre-release tarball that is reported to fix some bugs<br />
+in the current beta. We will see how it goes.</p>
+
+<p>Other Observations:</p>
+
+<p>Once you load the RW kext, it appears that anyone can do anything to the ZFS
+pools<br />
+and filesystems. On my single user system this is OK. I am the only user and
+guest<br />
+accounts are disabled. e.g. Initiate a scrub as a non-admin guest account or
+create a<br />
+snpashot as nobody (sudo -u nobody zfs snapshot p1/Music@nobody)</p>
+
+<p>You CANNOT download music from the iTunes store in the current beta. you get a<br />
+permission error. I can however add music from local files.</p>
+
+<p>Edit: Cleaned up the block quotes a bit, still not really rendering as one
+might hope.</p>
+
+
+    </div>
+
+    <aside>
+      <h2>Recent Articles</h2>
+      <ol>
+          <li><a href="/2011/07/27/looking-for-new-trail-shoes.html">Looking for new (trail) shoes</a> <span>Jul 27</span></li>
+          <li><a href="/2011/07/27/gunpowder-50k.html">Gunpowder 50k</a> <span>Jul 27</span></li>
+          <li><a href="/2011/01/02/winterclassic-2011.html">WinterClassic 2011</a> <span>Jan  2</span></li>
+          <li><a href="/2010/11/28/mcm-race-report-or-example-of-poor.html">MCM Race Report or An Example of Poor Execution</a> <span>Nov 28</span></li>
+          <li><a href="/2010/11/26/army-10-miler.html">Army 10 Miler</a> <span>Nov 26</span></li>
+          <li><a href="/2010/11/09/potomac-heritage-50k.html">Potomac Heritage 50K</a> <span>Nov  9</span></li>
+          <li><a href="/2010/10/21/10th-baltimore-marathon-race-report.html">10th Baltimore Marathon Race Report</a> <span>Oct 21</span></li>
+          <li><a href="/2010/09/29/day-hike-on-at.html">Day Hike on the AT</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/29/caps-vs-bruins-pre-season.html">Caps vs Bruins Pre-Season</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/19/icing-my-foot-and-reading-ultra-running.html">Icing my foot and reading ultra running blogs</a> <span>Sep 19</span></li>
+      </ol>
+
+      <h2>Tags</h2>
+      <ol>
+          <li><a href="/tags/yakshaving.html">yakshaving (130)</a></li>
+          <li><a href="/tags/b-s-c.html">b.s.c. (241)</a></li>
+          <li><a href="/tags/apple.html">apple (9)</a></li>
+          <li><a href="/tags/solaris.html">solaris (33)</a></li>
+          <li><a href="/tags/boring-n-healthy.html">boring N healthy (16)</a></li>
+          <li><a href="/tags/grid.html">grid (3)</a></li>
+          <li><a href="/tags/zones.html">zones (1)</a></li>
+          <li><a href="/tags/solaris10.html">solaris10 (1)</a></li>
+          <li><a href="/tags/lame.html">lame (6)</a></li>
+          <li><a href="/tags/opensolaris.html">opensolaris (11)</a></li>
+          <li><a href="/tags/bittorrent.html">BitTorrent (1)</a></li>
+          <li><a href="/tags/photography.html">photography (1)</a></li>
+          <li><a href="/tags/svn.html">SVN (2)</a></li>
+          <li><a href="/tags/scm.html">SCM (2)</a></li>
+          <li><a href="/tags/cvs.html">CVS (2)</a></li>
+          <li><a href="/tags/svk.html">SVK (2)</a></li>
+          <li><a href="/tags/cec-2006.html">CEC 2006 (28)</a></li>
+          <li><a href="/tags/sun.html">Sun (32)</a></li>
+          <li><a href="/tags/security.html">Security (5)</a></li>
+          <li><a href="/tags/encryption.html">Encryption (1)</a></li>
+          <li><a href="/tags/sun-cec.html">Sun CEC (44)</a></li>
+          <li><a href="/tags/dtrace.html">Dtrace (1)</a></li>
+          <li><a href="/tags/rbac.html">RBAC (1)</a></li>
+          <li><a href="/tags/spam.html">spam (1)</a></li>
+          <li><a href="/tags/education.html">Education (3)</a></li>
+          <li><a href="/tags/sungrid.html">SunGrid (2)</a></li>
+          <li><a href="/tags/puppy.html">puppy (1)</a></li>
+          <li><a href="/tags/web2-0.html">web2.0 (4)</a></li>
+          <li><a href="/tags/secondlife.html">secondlife (3)</a></li>
+          <li><a href="/tags/paranoia.html">Paranoia (2)</a></li>
+          <li><a href="/tags/sunmicrosystems.html">SunMicrosystems (1)</a></li>
+          <li><a href="/tags/cec-2007.html">CEC 2007 (22)</a></li>
+          <li><a href="/tags/indiana.html">indiana (1)</a></li>
+          <li><a href="/tags/olpc.html">olpc (4)</a></li>
+          <li><a href="/tags/x11.html">X11 (1)</a></li>
+          <li><a href="/tags/howto.html">howto (6)</a></li>
+          <li><a href="/tags/leopard.html">Leopard (5)</a></li>
+          <li><a href="/tags/sgd.html">sgd (1)</a></li>
+          <li><a href="/tags/tiger.html">Tiger (1)</a></li>
+          <li><a href="/tags/sge.html">SGE (3)</a></li>
+          <li><a href="/tags/n1ge.html">N1GE (2)</a></li>
+          <li><a href="/tags/zfs.html">ZFS (6)</a></li>
+          <li><a href="/tags/hockey.html">Hockey (3)</a></li>
+          <li><a href="/tags/storage.html">storage (3)</a></li>
+          <li><a href="/tags/food.html">food (5)</a></li>
+          <li><a href="/tags/race.html">race (14)</a></li>
+          <li><a href="/tags/running.html">running (23)</a></li>
+          <li><a href="/tags/photo.html">photo (16)</a></li>
+          <li><a href="/tags/baltimore.html">baltimore (5)</a></li>
+          <li><a href="/tags/family.html">family (1)</a></li>
+          <li><a href="/tags/theater.html">theater (1)</a></li>
+          <li><a href="/tags/vacation.html">vacation (1)</a></li>
+          <li><a href="/tags/china.html">china (1)</a></li>
+          <li><a href="/tags/video.html">video (4)</a></li>
+          <li><a href="/tags/untitled.html">Untitled (4)</a></li>
+          <li><a href="/tags/humor.html">humor (2)</a></li>
+          <li><a href="/tags/twitter.html">twitter (2)</a></li>
+          <li><a href="/tags/games.html">games (1)</a></li>
+          <li><a href="/tags/blender.html">blender (1)</a></li>
+          <li><a href="/tags/movie.html">Movie (1)</a></li>
+          <li><a href="/tags/rendering.html">rendering (1)</a></li>
+          <li><a href="/tags/oss.html">OSS (3)</a></li>
+          <li><a href="/tags/crosug.html">CROSUG (1)</a></li>
+          <li><a href="/tags/marathon.html">marathon (4)</a></li>
+          <li><a href="/tags/gooosegrade.html">gooosegrade (1)</a></li>
+          <li><a href="/tags/computing.html">computing (1)</a></li>
+          <li><a href="/tags/cloud.html">cloud (1)</a></li>
+          <li><a href="/tags/performance.html">performance (2)</a></li>
+          <li><a href="/tags/netbeans.html">NetBeans (1)</a></li>
+          <li><a href="/tags/java.html">java (1)</a></li>
+          <li><a href="/tags/fud.html">FUD (1)</a></li>
+          <li><a href="/tags/hiking.html">hiking (2)</a></li>
+          <li><a href="/tags/fail.html">fail (1)</a></li>
+          <li><a href="/tags/maryland.html">Maryland (1)</a></li>
+          <li><a href="/tags/tnfec.html">TNFEC (2)</a></li>
+          <li><a href="/tags/aarc.html">AARC (2)</a></li>
+          <li><a href="/tags/trail.html">trail (1)</a></li>
+          <li><a href="/tags/burn.html">Burn (1)</a></li>
+          <li><a href="/tags/wickerman.html">WickerMan (1)</a></li>
+          <li><a href="/tags/work.html">work (1)</a></li>
+          <li><a href="/tags/bruins.html">Bruins (1)</a></li>
+          <li><a href="/tags/capitals.html">Capitals (1)</a></li>
+          <li><a href="/tags/ultra.html">ultra (2)</a></li>
+          <li><a href="/tags/fatass.html">fatass (2)</a></li>
+          <li><a href="/tags/vhtrc.html">vhtrc (1)</a></li>
+          <li><a href="/tags/pittsburgh.html">Pittsburgh (1)</a></li>
+      </ol>
+
+      <h2>By Year</h2>
+      <ol>
+          <li><a href="/2011.html">2011 (3)</a></li>
+          <li><a href="/2010.html">2010 (21)</a></li>
+          <li><a href="/2009.html">2009 (2)</a></li>
+          <li><a href="/2008.html">2008 (27)</a></li>
+          <li><a href="/2007.html">2007 (56)</a></li>
+          <li><a href="/2006.html">2006 (61)</a></li>
+          <li><a href="/2005.html">2005 (95)</a></li>
+      </ol>
+    </aside>
+  </body>
+</html>

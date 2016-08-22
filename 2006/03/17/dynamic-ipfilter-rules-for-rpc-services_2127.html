@@ -1,0 +1,738 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge;chrome=1' />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Blog Title - Dynamic Ipfilter Rules for RPC Services via SMF</title>
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+  </head>
+  <body>
+
+    <div id="main" role="main">
+      <p>How do you allow access to rpc services through ipf?</p>
+
+<p>Use SMF with custom methods and dependencies to create Dynamic Ipfilter Rules
+for RPC Services.</p>
+
+<p>Searching found a number of people with<br />
+the same questions and no good answers <a href="http://blogs.sun.com/roller/page/avalon?entry=sunrpc_proxy_for_ipfilter">Darren<br />
+Reed: SunRPC
+proxy</a>,<a href="http://www.opensolaris.org/jive/thread.jspa?messageID=25804&amp;#25804">OpenSolaris<br />
+Forums</a> in
+which Darren states "There is a proxy, of sorts, in<br />
+the IPFilter source code at present, but it is of questionable<br />
+integrity". Unfortunately questionable<br />
+integrity is right out in this environment.</p>
+
+<p>A simple solution was implemented, a<br />
+startup script was written by Borgan Chu to parse <code>rpcinfo  
+-p</code> and create ipfilter rules to allow traffic from the<br />
+desired source addresses to the dynamic rpc service port. The script<br />
+uses a configuration file with<br />
+the following syntax, similar to the syntax of hosts.allow/hosts.deny.</p>
+
+<blockquote>
+  <p>` rpcservice: addrmask addrmask</p>
+
+  <p>rpcservice: addrmask addrmask ```</p>
+</blockquote>
+
+<p>It created rules using the following<br />
+logic:</p>
+
+<blockquote>
+  <p>`</p>
+
+  <p>Split each line into service and source</p>
+
+  <p>For each source add a rule to ipf to allow the desired traffic</p>
+
+  <p>e.g. pass in quick proto <em>rpcproto</em> from <em>source</em><br />
+to <em>dest</em> port = <em>rpcport</em> keep<br />
+state | ipf -f -</p>
+
+  <p>pass in quick proto udp from pool/1001 to any port = 32782 keep state</p>
+
+  <p>``pass in quick proto tcp from pool/1001 to<br />
+any port = 32808 keep state`</p>
+
+  <p><code>pass in quick proto udp from pool/1002 to any port =  
+32782 keep state</code>`</p>
+
+  <p>``pass in quick proto tcp from pool/1002 to<br />
+any port = 32808 keep state`</p>
+
+  <p>`</p>
+
+  <p>`</p>
+</blockquote>
+
+<p>The previous code acknowledged one <em>Major</em><br />
+problem. The script only runs at boot, any restart of rpcbind an rpc<br />
+service could result in different port assignment invalidating the<br />
+previous rules. From an operational standpoint I pictured repeatedly<br />
+troubleshooting the same issue: A service mysteriously stops working,<br />
+Tier 2 Engineers look into the problem and find that the<br />
+service is running and can be reached locally and possibly from other<br />
+hosts but not from the problem host.</p>
+
+<p>One other issue with the script was<br />
+apparent to me, future manual script execution would continue to add<br />
+entries to the rules with no way to clean up without flushing the<br />
+exiting rule set. This required a change to both the script and the<br />
+default ipf.conf rules. With  the following changes<br />
+the script supports both a stop and start method, as well as creating<br />
+slightly different rules.</p>
+
+<blockquote>
+  <p>`New base ipf rules:</p>
+
+  <h1 id="allow-dynamic-rpc-entries">Allow Dynamic RPC entries</h1>
+
+  <p>pass in on bge0 all head 100</p>
+
+  <h1 id="useless-rule-to-allow-for-deletion-of-all-inbound-dynamic-pass-rules">useless rule to allow for deletion of all inbound dynamic pass rules</h1>
+
+  <h1 id="ie-you-cant-delete-the-first-rule-in-a-group">i.e. you can't delete the first rule in a group</h1>
+
+  <p>pass in on lo0 all group 100</p>
+
+  <p>start()</p>
+
+  <p>Split each line into service and source</p>
+
+  <p>For each source add a rule to ipf to allow the desired traffic</p>
+
+  <p>e.g. pass in quick proto <em>rpcproto</em> from <em>source</em><br />
+to <em>dest</em> port = <em>rpcport</em> keep<br />
+state group 100 | ipf -f -</p>
+
+  <p>stop()</p>
+
+  <table>
+    <tbody>
+      <tr>
+        <td>/usr/sbin/ipfstat -i</td>
+        <td>/usr/bin/grep "group 100"</td>
+        <td>/usr/sbin/ipf -r -f -</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>pass in quick proto udp from pool/1002 to any port = 626 keep state<br />
+group 100</p>
+
+  <p>pass in quick proto tcp from pool/1002 to any port = 35913 keep state<br />
+group 100</p>
+
+  <p>pass in quick proto udp from pool/1001 to any port = 626 keep state<br />
+group 100</p>
+
+  <p>pass in quick proto tcp from pool/1001 to any port = 35913 keep state<br />
+group 100</p>
+
+  <p>`</p>
+</blockquote>
+
+<p>The major problem of maintaining dynamic<br />
+rules can be resolved using <a href="http://www.sun.com/bigadmin/content/selfheal
+/smf-quickstart.html">SMF</a>,<br />
+creating a service for our ipf rules script with <code>require_all</code> dependencies<br />
+on ipfilter causes the new service to run only when ipfilter is enabled.</p>
+
+<blockquote>
+  <p>`dependency<br />
+require_all/refresh svc:/network/ipfilter:default (online)</p>
+
+  <p>``dependency<br />
+require_any/refresh<br />
+svc:/network/rpc/bind:default (online)`</p>
+
+</blockquote>
+
+<p>The execution can be further tuned by creating <code>require_any</code><br />
+dependencies<br />
+on various rpc services.</p>
+
+<blockquote>
+  <p>`svcs "<em>rpc</em>"</p>
+
+  <p>`</p>
+</blockquote>
+
+<p>After the manifest is loaded the properties of the service can be bulk<br />
+updated to cover most standard rpc services with the following command, or
+manually updated to <code>require_any</code><br />
+other specific rpc services.</p>
+
+<blockquote>
+  <p><code>svccfg -s ipfilter:rpcbind setprop  
+"rpc_services/entities = fmri:  
+(</code>svcs -H *rpc* *nis* *nfs* | awk '$NF !~ /ipfilter|bind:default/{
+print $3 }'`)"</p>
+
+  <p>Replaces the manifest defined rpc_services dependencies with the following:</p>
+
+  <p>`</p>
+
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <p>`svc:/network/rpc/keyserv:default</p>
+
+  <p>svc:/network/rpc/nisplus:default</p>
+
+  <p>svc:/network/rpc/bootparams:default</p>
+
+  <p>svc:/network/rpc/gss:default</p>
+
+  <p>svc:/network/rpc/mdcomm:default</p>
+
+  <p>svc:/network/rpc/metamed:default</p>
+
+  <p>svc:/network/rpc/metamh:default</p>
+
+  <p>svc:/network/rpc/rex:default</p>
+
+  <p>svc:/network/rpc/rusers:default</p>
+
+  <p>svc:/network/rpc/spray:default</p>
+
+  <p>svc:/network/rpc/wall:default</p>
+
+  <p>svc:/network/rpc-100235_1/rpc_ticotsord:default</p>
+
+  <p>svc:/network/nfs/server:default</p>
+
+  <p>svc:/network/rpc/meta:default</p>
+
+  <p>svc:/network/rpc/smserver:default</p>
+
+  <p>svc:/network/rpc/rstat:default</p>
+
+  <p>svc:/network/nfs/rquota:default</p>
+
+  <p>svc:/network/nfs/client:default</p>
+
+  <p>svc:/network/nis/passwd:default</p>
+
+  <p>svc:/network/nis/update:default</p>
+
+  <p>svc:/network/nis/client:default</p>
+
+  <p>svc:/network/nis/server:default</p>
+
+  <p>svc:/network/nfs/cbd:default</p>
+
+  <p>svc:/network/nfs/mapid:default</p>
+
+  <p>svc:/network/nis/xfr:default</p>
+
+  <p>svc:/network/nfs/status:default</p>
+
+  <p>svc:/network/nfs/nlockmgr:default</p>
+
+  <p>```</p>
+
+  <p>``</p>
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+
+  <p>``</p>
+</blockquote>
+
+<p>Using a script similar to the one described above you could<br />
+specifically limit the dependent services to the ones specified in your<br />
+configuration file.</p>
+
+<p>The Service Manifest:</p>
+
+<blockquote>
+  <p>`<br />
+<?xml version='1.0'?></p>
+
+  <p>&lt;!DOCTYPE service_bundle SYSTEM<br />
+"/usr/share/lib/xml/dtd/service_bundle.dtd.1"&gt;</p>
+
+  <!--  
+ 
+ 
+Shawn Ferry yakshaving <@> sun.com  
+ 
+ 
+Service manifest for maintaining dynamic ipfilter rules  
+ 
+ 
+-->
+
+  <service_bundle type="manifest" name="ipfilter:dynamic">  
+ 
+ 
+ 
+ 
+ 
+  <service name="application/ipfilter/dynamic" type="service" version="1">  
+ 
+ 
+ 
+ 
+    ``<!-- maybe more than one if this gets complex -->`  
+ 
+ `  
+    <single_instance />  
+ 
+ 
+ 
+ 
+        <!-- Require ipfilter, without an online ipfilter, don't try to add
+rules -->  
+ 
+        <dependency name="ipfilter" grouping="require_all" restart_on="refresh" type="service">  
+ 
+ 
+ 
+<service_fmri value="svc:/network/ipfilter:default" />  
+ 
+ 
+ 
+</dependency>  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+      <!--  
+ 
+       An  
+instance for rpcbind, additional instances  
+ 
+       could be created for  
+additional services requiring  
+ 
+       dynamic rules (this would be the time to disable single_instance)  
+ 
+      -->  
+ 
+ 
+      <instance name="rpcbind" enabled="true">  
+ 
+ 
+ 
+<!-- If rpcbind is offline, no rules to add, don't do anything -->  
+ 
+              <dependency name="rpc_bind" grouping="require_all" restart_on="refresh" type="service">  
+ 
+ 
+ 
+<service_fmri value="svc:/network/rpc/bind:default" />  
+ 
+ 
+ 
+</dependency>  
+ 
+ 
+ 
+              <!-- If rule creation config file is missing, don't do
+anything -->  
+ 
+ 
+ 
+<dependency name="ipfilter_rpcbind_config" grouping="require_all" restart_on="refresh" type="path">  
+ 
+ 
+ 
+<service_fmri value="file://localhost/etc/ipf/ipfilter-dynamic_rpcbind.cfg" />  
+ 
+ 
+ 
+</dependency>  
+ 
+ 
+ 
+ 
+              <!--  
+ 
+               All of the dependencies in the rpc_services group  
+ 
+               are "require_any".  
+ 
+ 
+ 
+               With a "refresh" directive, on stop/start/refresh of those  
+ 
+               services the ``ipfilter/dynamic:rpcbind service will be
+restarted  
+ 
+               keeping the ipf rules up to date  
+ 
+              -->``  
+ 
+ 
+ 
+<dependency name="rpc_services" grouping="require_any" restart_on="refresh" type="service">  
+ 
+ 
+ 
+<service_fmri value="svc:/network/nfs/server:default" />  
+ 
+ 
+ 
+<service_fmri value="svc:/network/nfs/client:default" />  
+ 
+ 
+ 
+</dependency>  
+ 
+ 
+ 
+ 
+        <!-- On "start" run the ipf rule script with the argument start -->  
+ 
+ 
+ 
+<exec_method type="method" name="start" exec="/lib/svc/method/ipfilter-dynamic_rpcbind start" timeout_seconds="30" />  
+ 
+ 
+ 
+ ``        <!-- On "stop" run the ipf rule script with the argument stop
+-->`  
+ 
+ `  
+ 
+<exec_method type="method" name="stop" exec="/lib/svc/method/ipfilter-dynamic_rpcbind stop" timeout_seconds="60" />  
+ 
+ 
+ 
+ 
+        <!--  
+ 
+          This is a transient service we are looking for a clean  
+ 
+          exit code. i.e. a svcs -p shows no associated processes  
+ 
+        -->  
+ 
+ 
+ 
+<property_group name="startd" type="framework">  
+ 
+ 
+ 
+<propval name="duration" type="astring" value="transient" />  
+ 
+ 
+ 
+</property_group>  
+ 
+ 
+ 
+ 
+        &lt;!--  
+ 
+         Useful Info:  
+ 
+ `  
+
+</instance></service></service_bundle>
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+  <p><code>svcs -xv dynamic:rpcbind</code></p>
+
+  <p><code>svc:/application/ipfilter/dynamic:rpcbind (Dynamic rpc service rules for
+ipfilter)</code></p>
+
+  <p><code> State: online since Fri Mar 17 19:41:14 2006</code></p>
+
+  <p><code>   See: man -M /usr/share/man -s 1M ipf</code></p>
+
+  <p><code>   See: man -M /usr/share/man -s 1M ipfstat</code></p>
+
+  <p><code>   See: man -M /usr/share/man -s 4 ipf.conf</code></p>
+
+  <p><code>   See: /var/svc/log/application-sungrid-ipfilter:rpcbind.log</code></p>
+
+  <p><code>Impact: None.</code></p>
+
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+
+  <p>``</p>
+</blockquote>
+
+<blockquote>
+
+</blockquote>
+
+<blockquote>
+
+  <p>`        –&gt;</p>
+
+  <template>  
+ 
+ 
+ 
+<common_name>  
+ 
+ 
+ 
+<loctext xml:lang="C">  
+ 
+ 
+Dynamic rpc service rules for ipfilter  
+ 
+ 
+ 
+</loctext>  
+ 
+ 
+ 
+</common_name>  
+ 
+ 
+ 
+<description>  
+ 
+ 
+ 
+<loctext xml:lang="C">  
+ 
+ 
+ 
+Add Dynamic rpc services rules to ipfilter refresh rules on  
+ 
+ 
+ 
+restart/refresh of various services to maintain rules.  
+ 
+ 
+ 
+ 
+ 
+ 
+Manually clearing and reloading ipfilter rules with ipf will not  
+ 
+ 
+ 
+trigger this service to restart/refresh.  
+ 
+ 
+ 
+e.g. ipf -Fa -f /etc/ipf/ipf.conf  
+ 
+ 
+ 
+</loctext>  
+ 
+ 
+ 
+</description>  
+ 
+ 
+ 
+<documentation>  
+ 
+ 
+ 
+<manpage title="ipf" section="1M" manpath="/usr/share/man" />  
+ 
+ 
+ 
+<manpage title="ipfstat" section="1M" manpath="/usr/share/man" />  
+ 
+ 
+ 
+<manpage title="ipf.conf" section="4" manpath="/usr/share/man" />  
+ 
+ 
+ 
+</documentation>  
+ 
+ 
+ 
+</template>
+
+  <p>&lt;/instance&gt;</p>
+
+  <pre><code>  &lt;stability   value='Unstable' /&gt;  
+</code></pre>
+
+  <p>&lt;/service&gt;</p>
+
+  <p>&lt;/service_bundle&gt;</p>
+
+  <p>`</p>
+</blockquote>
+
+<p>References:</p>
+
+<p><a href="http://blogs.sun.com/roller/page/lianep?entry=smf_5_fault_retry_models">Liane Praza's: smf(5) fault/retry
+models</a></p>
+
+<p><a href="http://www.sun.com/bigadmin/content/selfheal/sdev_intro.html">Service Developer
+Introduction</a></p>
+
+<p><a href="http://docs.sun.com/app/docs/doc/816-5175/6mbba7f3o?a=view">smf(5)</a></p>
+
+<p>Notes:</p>
+
+<p>Any IPF rules that are actively in use when the service restarts or is
+disabled are not removed. That particular aspect is not an issue for us as it
+is assumed that if the rule is in use the service is still listening.</p>
+
+<p>topic:[Solaris]<br />
+topic:[SMF]<br />
+topic:[ipfilter]</p>
+
+
+    </div>
+
+    <aside>
+      <h2>Recent Articles</h2>
+      <ol>
+          <li><a href="/2011/07/27/looking-for-new-trail-shoes.html">Looking for new (trail) shoes</a> <span>Jul 27</span></li>
+          <li><a href="/2011/07/27/gunpowder-50k.html">Gunpowder 50k</a> <span>Jul 27</span></li>
+          <li><a href="/2011/01/02/winterclassic-2011.html">WinterClassic 2011</a> <span>Jan  2</span></li>
+          <li><a href="/2010/11/28/mcm-race-report-or-example-of-poor.html">MCM Race Report or An Example of Poor Execution</a> <span>Nov 28</span></li>
+          <li><a href="/2010/11/26/army-10-miler.html">Army 10 Miler</a> <span>Nov 26</span></li>
+          <li><a href="/2010/11/09/potomac-heritage-50k.html">Potomac Heritage 50K</a> <span>Nov  9</span></li>
+          <li><a href="/2010/10/21/10th-baltimore-marathon-race-report.html">10th Baltimore Marathon Race Report</a> <span>Oct 21</span></li>
+          <li><a href="/2010/09/29/day-hike-on-at.html">Day Hike on the AT</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/29/caps-vs-bruins-pre-season.html">Caps vs Bruins Pre-Season</a> <span>Sep 29</span></li>
+          <li><a href="/2010/09/19/icing-my-foot-and-reading-ultra-running.html">Icing my foot and reading ultra running blogs</a> <span>Sep 19</span></li>
+      </ol>
+
+      <h2>Tags</h2>
+      <ol>
+          <li><a href="/tags/yakshaving.html">yakshaving (130)</a></li>
+          <li><a href="/tags/b-s-c.html">b.s.c. (241)</a></li>
+          <li><a href="/tags/apple.html">apple (9)</a></li>
+          <li><a href="/tags/solaris.html">solaris (33)</a></li>
+          <li><a href="/tags/boring-n-healthy.html">boring N healthy (16)</a></li>
+          <li><a href="/tags/grid.html">grid (3)</a></li>
+          <li><a href="/tags/zones.html">zones (1)</a></li>
+          <li><a href="/tags/solaris10.html">solaris10 (1)</a></li>
+          <li><a href="/tags/lame.html">lame (6)</a></li>
+          <li><a href="/tags/opensolaris.html">opensolaris (11)</a></li>
+          <li><a href="/tags/bittorrent.html">BitTorrent (1)</a></li>
+          <li><a href="/tags/photography.html">photography (1)</a></li>
+          <li><a href="/tags/svn.html">SVN (2)</a></li>
+          <li><a href="/tags/scm.html">SCM (2)</a></li>
+          <li><a href="/tags/cvs.html">CVS (2)</a></li>
+          <li><a href="/tags/svk.html">SVK (2)</a></li>
+          <li><a href="/tags/cec-2006.html">CEC 2006 (28)</a></li>
+          <li><a href="/tags/sun.html">Sun (32)</a></li>
+          <li><a href="/tags/security.html">Security (5)</a></li>
+          <li><a href="/tags/encryption.html">Encryption (1)</a></li>
+          <li><a href="/tags/sun-cec.html">Sun CEC (44)</a></li>
+          <li><a href="/tags/dtrace.html">Dtrace (1)</a></li>
+          <li><a href="/tags/rbac.html">RBAC (1)</a></li>
+          <li><a href="/tags/spam.html">spam (1)</a></li>
+          <li><a href="/tags/education.html">Education (3)</a></li>
+          <li><a href="/tags/sungrid.html">SunGrid (2)</a></li>
+          <li><a href="/tags/puppy.html">puppy (1)</a></li>
+          <li><a href="/tags/web2-0.html">web2.0 (4)</a></li>
+          <li><a href="/tags/secondlife.html">secondlife (3)</a></li>
+          <li><a href="/tags/paranoia.html">Paranoia (2)</a></li>
+          <li><a href="/tags/sunmicrosystems.html">SunMicrosystems (1)</a></li>
+          <li><a href="/tags/cec-2007.html">CEC 2007 (22)</a></li>
+          <li><a href="/tags/indiana.html">indiana (1)</a></li>
+          <li><a href="/tags/olpc.html">olpc (4)</a></li>
+          <li><a href="/tags/x11.html">X11 (1)</a></li>
+          <li><a href="/tags/howto.html">howto (6)</a></li>
+          <li><a href="/tags/leopard.html">Leopard (5)</a></li>
+          <li><a href="/tags/sgd.html">sgd (1)</a></li>
+          <li><a href="/tags/tiger.html">Tiger (1)</a></li>
+          <li><a href="/tags/sge.html">SGE (3)</a></li>
+          <li><a href="/tags/n1ge.html">N1GE (2)</a></li>
+          <li><a href="/tags/zfs.html">ZFS (6)</a></li>
+          <li><a href="/tags/hockey.html">Hockey (3)</a></li>
+          <li><a href="/tags/storage.html">storage (3)</a></li>
+          <li><a href="/tags/food.html">food (5)</a></li>
+          <li><a href="/tags/race.html">race (14)</a></li>
+          <li><a href="/tags/running.html">running (23)</a></li>
+          <li><a href="/tags/photo.html">photo (16)</a></li>
+          <li><a href="/tags/baltimore.html">baltimore (5)</a></li>
+          <li><a href="/tags/family.html">family (1)</a></li>
+          <li><a href="/tags/theater.html">theater (1)</a></li>
+          <li><a href="/tags/vacation.html">vacation (1)</a></li>
+          <li><a href="/tags/china.html">china (1)</a></li>
+          <li><a href="/tags/video.html">video (4)</a></li>
+          <li><a href="/tags/untitled.html">Untitled (4)</a></li>
+          <li><a href="/tags/humor.html">humor (2)</a></li>
+          <li><a href="/tags/twitter.html">twitter (2)</a></li>
+          <li><a href="/tags/games.html">games (1)</a></li>
+          <li><a href="/tags/blender.html">blender (1)</a></li>
+          <li><a href="/tags/movie.html">Movie (1)</a></li>
+          <li><a href="/tags/rendering.html">rendering (1)</a></li>
+          <li><a href="/tags/oss.html">OSS (3)</a></li>
+          <li><a href="/tags/crosug.html">CROSUG (1)</a></li>
+          <li><a href="/tags/marathon.html">marathon (4)</a></li>
+          <li><a href="/tags/gooosegrade.html">gooosegrade (1)</a></li>
+          <li><a href="/tags/computing.html">computing (1)</a></li>
+          <li><a href="/tags/cloud.html">cloud (1)</a></li>
+          <li><a href="/tags/performance.html">performance (2)</a></li>
+          <li><a href="/tags/netbeans.html">NetBeans (1)</a></li>
+          <li><a href="/tags/java.html">java (1)</a></li>
+          <li><a href="/tags/fud.html">FUD (1)</a></li>
+          <li><a href="/tags/hiking.html">hiking (2)</a></li>
+          <li><a href="/tags/fail.html">fail (1)</a></li>
+          <li><a href="/tags/maryland.html">Maryland (1)</a></li>
+          <li><a href="/tags/tnfec.html">TNFEC (2)</a></li>
+          <li><a href="/tags/aarc.html">AARC (2)</a></li>
+          <li><a href="/tags/trail.html">trail (1)</a></li>
+          <li><a href="/tags/burn.html">Burn (1)</a></li>
+          <li><a href="/tags/wickerman.html">WickerMan (1)</a></li>
+          <li><a href="/tags/work.html">work (1)</a></li>
+          <li><a href="/tags/bruins.html">Bruins (1)</a></li>
+          <li><a href="/tags/capitals.html">Capitals (1)</a></li>
+          <li><a href="/tags/ultra.html">ultra (2)</a></li>
+          <li><a href="/tags/fatass.html">fatass (2)</a></li>
+          <li><a href="/tags/vhtrc.html">vhtrc (1)</a></li>
+          <li><a href="/tags/pittsburgh.html">Pittsburgh (1)</a></li>
+      </ol>
+
+      <h2>By Year</h2>
+      <ol>
+          <li><a href="/2011.html">2011 (3)</a></li>
+          <li><a href="/2010.html">2010 (21)</a></li>
+          <li><a href="/2009.html">2009 (2)</a></li>
+          <li><a href="/2008.html">2008 (27)</a></li>
+          <li><a href="/2007.html">2007 (56)</a></li>
+          <li><a href="/2006.html">2006 (61)</a></li>
+          <li><a href="/2005.html">2005 (95)</a></li>
+      </ol>
+    </aside>
+  </body>
+</html>
