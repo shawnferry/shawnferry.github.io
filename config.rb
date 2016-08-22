@@ -47,6 +47,8 @@ activate :blog do |blog|
   # blog.page_link = "page/{num}"
 end
 
+ignore '/post.erb'
+
 page "/feed.xml", layout: false
 # Reload the browser automatically whenever files change
 # configure :development do
@@ -67,4 +69,8 @@ configure :build do
 
   # Minify Javascript on build
   # activate :minify_javascript
+end
+
+activate :deploy do |deploy|
+    deploy.deploy_method = :git
 end
