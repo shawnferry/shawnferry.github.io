@@ -4,7 +4,7 @@ date: 2016-09-25 16:14 EDT
 tags:
 ---
 
-Having imported all of my old blog entries from blogs.sun.com and the few I added to blogger, I'm getting started again after 1887 days of non-blogging.
+Having imported all of my old blog entries from blogs.sun.com and the few I added to blogger, I'm getting started again after 1887 days of non-blogging (July 27, 2011 if you were wondering).
 
 Here's to hoping that simple static pages on github giving me the ability to write clean markdown lets the act of blogging just get out of the way. 
 
