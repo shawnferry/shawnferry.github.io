@@ -2,23 +2,45 @@
 pageable: true
 per_page: 10
 ---
-<% if paginate && num_pages > 1 %>
-  <p>Page <%= page_number %> of <%= num_pages %></p>
+<head>
+  <title>Shawnferry.GitHub.io by shawnferry</title>
+</head>
 
-  <% if prev_page %>
-    <p><%= link_to 'Previous page', prev_page %></p>
-  <% end %>
-<% end %>
+<div id="header">
+  <nav>
+    <li class="fork"><a href="https://github.com/shawnferry">View On GitHub</a></li>
+  </nav>
+</div><!-- end header -->
+<div class="wrapper">
 
-<% page_articles.each_with_index do |article, i| %>
-  <h2><%= link_to article.title, article %> <span><%= article.date.strftime('%b %e') %></span></h2>
-  <!-- use article.summary(250) if you have Nokogiri available to show just
-       the first 250 characters -->
-  <%= article.body %>
-<% end %>
+  <section>
+    <div id="title">
+      <h1>Shawnferry.GitHub.io</h1>
+      <p>It&#39;s a blog</p>
+      <hr>
+      <span class="credits left">Project maintained by <a href="https://github.com/shawnferry">shawnferry</a></span>
+      <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+    </div>
 
-<% if paginate %>
-  <% if next_page %>
-    <p><%= link_to 'Next page', next_page %></p>
-  <% end %>
-<% end %>
+    <% if paginate && num_pages > 1 %>
+      <p>Page <%= page_number %> of <%= num_pages %></p>
+
+      <% if prev_page %>
+        <p><%= link_to 'Previous page', prev_page %></p>
+      <% end %>
+    <% end %>
+
+    <% page_articles.each_with_index do |article, i| %>
+      <h2><%= link_to article.title, article %> <span><%= article.date.strftime('%b %e') %></span></h2>
+      <!-- use article.summary(250) if you have Nokogiri available to show just
+        the first 250 characters -->
+        <%= article.body %>
+      <% end %>
+
+      <% if paginate %>
+        <% if next_page %>
+          <p><%= link_to 'Next page', next_page %></p>
+        <% end %>
+      <% end %>
+  </section>
+</div>
